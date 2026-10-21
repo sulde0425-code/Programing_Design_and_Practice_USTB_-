@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload TXT Files - Harry Potter Retrieval</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 920px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .card {
+            background: rgba(15, 23, 42, 0.78);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            border-radius: 14px;
+            padding: 22px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(6px);
+        }
+
+        h1 {
+            font-size: 1.9rem;
+            margin-bottom: 8px;
+            color: #f8fafc;
+        }
+
+        p {
+            color: #cbd5e1;
+            line-height: 1.6;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        button, .link-btn {
+            border: none;
+            border-radius: 8px;
+            padding: 11px 18px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        #uploadBtn {
+            background: #22c55e;
+            color: #052e16;
+        }
+
+        #refreshBtn {
+            background: #0ea5e9;
+            color: #082f49;
+        }
+
+        .link-btn {
+            display: inline-block;
+            background: #e2e8f0;
+            color: #0f172a;
+            text-decoration: none;
+        }
+
+        input[type="file"] {
+            width: 100%;
+            margin-top: 12px;
+            padding: 10px;
+            border: 1px dashed rgba(148, 163, 184, 0.5);
+            border-radius: 8px;
+            background: rgba(30, 41, 59, 0.5);
+            color: #e2e8f0;
+        }
+
+        .muted {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-top: 8px;
+        }
+
+        #status {
+            margin-top: 12px;
+            min-height: 22px;
+            color: #fbbf24;
+        }
+
+        #fileList, #bookList {
+            margin-top: 12px;
+            border-top: 1px solid rgba(148, 163, 184, 0.25);
+            padding-top: 12px;
+        }
+
+        .row {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+            font-size: 0.95rem;
+            color: #e2e8f0;
+        }
+
+        .small {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-left: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>Upload TXT Files</h1>
+            <p>This page uploads local <code>.txt</code> files to the running retrieval server. No books are loaded automatically at startup.</p>
+            <input id="fileInput" type="file" accept=".txt,text/plain" multiple>
+            <div class="muted">You can select one or multiple files.</div>
+            <div id="fileList"></div>
+            <div class="actions">
+                <button id="uploadBtn">Upload Selected Files</button>
+                <button id="refreshBtn">Refresh Uploaded Books</button>
+                <a class="link-btn" href="/index.html">Go To Search Page</a>
+            </div>
+            <div id="status"></div>
+        </div>
+
+        <div class="card">
+            <h1 style="font-size:1.35rem;">Uploaded Books</h1>
+            <div id="bookList" class="muted">No books loaded yet.</div>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById("fileInput");
+        const uploadBtn = document.getElementById("uploadBtn");
+        const refreshBtn = document.getElementById("refreshBtn");
+        const fileList = document.getElementById("fileList");
+        const bookList = document.getElementById("bookList");
+        const statusEl = document.getElementById("status");
+
+        function showStatus(msg, isError = false) {
+            statusEl.style.color = isError ? "#fca5a5" : "#fbbf24";
+            statusEl.textContent = msg;
+        }
+
+        function renderSelectedFiles(files) {
+            if (!files.length) {
+                fileList.innerHTML = "";
+                return;
+            }
+            fileList.innerHTML = files.map((f, idx) =>
+                `<div class="row">${idx + 1}. ${f.name}<span class="small">(${f.size} bytes)</span></div>`
+            ).join("");
+        }
+
+        async function refreshBooks() {
+            try {
+                const res = await fetch("/api/files");
+                const data = await res.json();
+                const books = data.loadedBooks || [];
+                if (!books.length) {
+                    bookList.innerHTML = '<div class="muted">No books loaded yet.</div>';
+                    return;
+                }
+                bookList.innerHTML = books.map(book =>
+                    `<div class="row">${book.id}. ${book.name}<span class="small">${book.lines} lines, ${book.words} words</span></div>`
+                ).join("");
+            } catch (err) {
+                bookList.innerHTML = '<div class="muted">Failed to fetch loaded books.</div>';
+            }
+        }
+
+        async function uploadSingleFile(file, index, total) {
+            const text = await file.text();
+            const url = `/api/upload?name=${encodeURIComponent(file.name)}`;
+            const res = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "text/plain; charset=utf-8"
+                },
+                body: text
+            });
+            const data = await res.json();
+            if (!res.ok || data.error) {
+                throw new Error(data.error || `Upload failed for ${file.name}`);
+            }
+            showStatus(`Uploaded ${index}/${total}: ${file.name}`);
+        }
+
+        async function uploadFiles() {
+            const files = Array.from(fileInput.files || []);
+            if (!files.length) {
+                showStatus("Please select at least one .txt file.", true);
+                return;
+            }
+
+            uploadBtn.disabled = true;
+            fileInput.disabled = true;
+            showStatus(`Uploading ${files.length} file(s)...`);
+
+            try {
+                for (let i = 0; i < files.length; i++) {
+                    await uploadSingleFile(files[i], i + 1, files.length);
+                }
+                showStatus(`Upload completed: ${files.length} file(s).`);
+                await refreshBooks();
+            } catch (err) {
+                showStatus(err.message, true);
+            } finally {
+                uploadBtn.disabled = false;
+                fileInput.disabled = false;
+            }
+        }
+
+        fileInput.addEventListener("change", () => {
+            renderSelectedFiles(Array.from(fileInput.files || []));
+            if (!fileInput.files.length) {
+                showStatus("");
+            }
+        });
+
+        uploadBtn.addEventListener("click", uploadFiles);
+        refreshBtn.addEventListener("click", refreshBooks);
+
+        refreshBooks();
+    </script>
+</body>
+</html>
+

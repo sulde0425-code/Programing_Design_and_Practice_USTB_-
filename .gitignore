@@ -1,0 +1,51 @@
+# 通用忽略规则（编译产物 / IDE 配置 / 压缩包）
+
+# --- 编译产物 ---
+*.exe
+*.obj
+*.o
+*.gch
+*.pch
+*.ilk
+*.pdb
+*.lib
+*.dll
+*.exp
+*.idb
+*.tlog
+*.lastbuildstate
+*.recipe
+*.log
+
+# --- 构建目录 ---
+build/
+build-*/
+cmake-build-*/
+out/
+release/
+x64/
+Debug/
+Release/
+bin/
+obj/
+
+# --- IDE / 编辑器 ---
+.vs/
+.idea/
+.vscode/
+*.vcxproj.user
+*.user
+CMakeSettings.user.json
+CMakeUserPresets.json
+
+# --- 系统文件 ---
+.DS_Store
+Thumbs.db
+desktop.ini
+__MACOSX/
+
+# --- 虚拟环境 / 压缩包 ---
+.venv/
+venv/
+*.rar
+*.zip
